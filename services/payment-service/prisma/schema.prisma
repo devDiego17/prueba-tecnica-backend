@@ -1,0 +1,114 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Merchant {
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String
+  mail       String   @unique
+  api_key    String   @unique
+  status     MerchantStatus @default(active)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("merchants")
+
+  transactions Transaction[] 
+  settlements Settlement[]
+}
+
+model Transaction {
+  id              String            @id @default(uuid()) @db.Uuid
+  merchantId      String            @db.Uuid
+  amount          Decimal           @db.Decimal(10, 2)
+  currency        Currency
+  type            TransactionType
+  status          TransactionStatus
+  paymentMethod   PaymentMethod
+  settlementStatus SettlementStatus
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  @@map("transactions")
+
+  merchant Merchant @relation(fields: [merchantId], references: [id])
+  SettlementTransaction SettlementTransaction[]
+}
+
+model Settlement{
+  id              String            @id @default(uuid()) @db.Uuid
+  merchantId      String            @db.Uuid
+  totalAmount     Decimal           @db.Decimal(14, 2)
+  transactionCount  Int
+  status          SettlementStatus
+  periodStart      DateTime
+  periodEnd        DateTime
+  createdAt       DateTime          @default(now()) @map("created_at")
+
+  merchant Merchant @relation(fields: [merchantId], references: [id])
+ 
+
+  transaction SettlementTransaction[]
+
+  @@map("settlements")
+}
+
+model SettlementTransaction {
+  id            String   @id @default(uuid()) @db.Uuid
+  settlementId   String   @db.Uuid
+  transactionId  String   @db.Uuid
+
+  settlement Settlement @relation(fields: [settlementId], references: [id])
+  transaction Transaction @relation(fields: [transactionId], references: [id])
+
+  @@map("settlement_transactions")
+}
+
+
+enum MerchantStatus {
+  active
+  inactive
+}
+
+enum Currency {
+  GTQ
+  COP
+  USD
+} 
+enum TransactionType { 
+  payin
+  payout
+   } 
+
+enum TransactionStatus { 
+  pending 
+  approved
+  completed 
+  failed
+  rejected 
+  }
+
+enum PaymentMethod { 
+  credit_card 
+  debit_card
+  paypal
+  bank_transfer 
+  } 
+
+enum SettlementStatus { 
+  pending 
+  completed
+  failed 
+  paid 
+  }
+
+
