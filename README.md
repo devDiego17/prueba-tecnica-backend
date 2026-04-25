@@ -53,3 +53,13 @@ Calcula total_amount y transaction_count automáticamente
 Creación atómica usando transacción de base de datos (prisma.$transaction)
 Retorna 404 si no hay transacciones elegibles en el periodo
 Endpoint GET /settlements/:id que retorna el detalle de la liquidación con sus transacciones asociadas
+
+
+Parte 2.3 — Guard de Autenticación por API Key
+
+Guard ApiKeyGuard que lee el header x-api-key y valida el merchant en la DB
+Retorna 401 Unauthorized si la API key no existe
+Retorna 403 Forbidden si el merchant está inactivo
+Inyecta el objeto merchant en el request automáticamente
+Decorador @CurrentMerchant() para extraer el merchant en controllers
+El merchant_id se inyecta automáticamente desde la API key — no es necesario enviarlo en el body
