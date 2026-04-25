@@ -3,8 +3,8 @@ import { Currency, TransactionType } from '@prisma/client'
 
 export class CreateTransactionDto {
   @IsUUID('4')
-  @IsNotEmpty()
-  merchant_id: string
+  @IsOptional()
+  merchant_id?: string
 
   @IsNumber({ maxDecimalPlaces: 2 })
   @IsPositive()

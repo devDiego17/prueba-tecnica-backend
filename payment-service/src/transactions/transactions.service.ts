@@ -23,18 +23,20 @@ export class TransactionsService {
     return `TXN-${date}-${random}`
   }
 
- private async generateUniqueReference(): Promise<string> {
-  let reference = this.generateReference()
-  
-  while (await this.prisma.transaction.findUnique({ where: { reference } })) {
-    reference = this.generateReference()
+  private async generateUniqueReference(): Promise<string> {
+    let reference = this.generateReference()
+    while (await this.prisma.transaction.findUnique({ where: { reference } })) {
+      reference = this.generateReference()
+    }
+    return reference
   }
-
-  return reference
-}
 
   async create(createTransactionDto: CreateTransactionDto) {
     const { merchant_id, amount, currency, type, metadata } = createTransactionDto
+
+    if (!merchant_id) {
+      throw new NotFoundException('merchant_id es requerido')
+    }
 
     const merchant = await this.prisma.merchant.findUnique({
       where: { id: merchant_id },
