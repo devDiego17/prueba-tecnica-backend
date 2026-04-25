@@ -27,3 +27,20 @@ Módulo merchants con endpoint POST /merchants para registro de comercios
 Generación automática de api_key con UUID v4
 Validación de duplicados por email con respuesta 409 Conflict
 Validación de payload con class-validator y ValidationPipe global
+
+
+Parte 2.1 — Módulo de Transacciones
+
+Endpoint POST /transactions para crear transacciones con validación de merchant existente
+Generación automática de referencia única con formato TXN-{YYYYMMDD}-{random6chars}
+Endpoint GET /transactions con paginación offset y filtros por status, type, date_from, date_to
+Endpoint GET /transactions/:id para obtener detalle de una transacción
+Endpoint PATCH /transactions/:id/status con máquina de estados:
+
+pending → approved, rejected, failed
+approved → completed, failed
+Cualquier otra transición retorna 422 Unprocessable Entity
+
+
+Validaciones con class-validator en todos los endpoints
+Transformación automática de query params con class-transformer
