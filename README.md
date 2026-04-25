@@ -16,4 +16,14 @@ Bienvenido/a a la prueba tecnica para la posicion de **Backend Developer**. Esta
 
 Exitos.
  
- modulo 1 : Modelo de base de datos y migracion con Prisma a docker  ✅
+ Parte 1 — Incremento de el modulo 1, Modelado de Base de Datos y Merchants;
+
+Configuración de Prisma v7 con PostgreSQL vía Docker
+Schema relacional con las entidades merchants, transactions, settlements y settlement_transactions
+Enums para MerchantStatus, Currency, TransactionType, TransactionStatus y SettlementStatus
+Índices en campos de búsqueda frecuente (merchant_id, status, created_at)
+Migración inicial aplicada con prisma migrate dev
+Módulo merchants con endpoint POST /merchants para registro de comercios
+Generación automática de api_key con UUID v4
+Validación de duplicados por email con respuesta 409 Conflict
+Validación de payload con class-validator y ValidationPipe global
