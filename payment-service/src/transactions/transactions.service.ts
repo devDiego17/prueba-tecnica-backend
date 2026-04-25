@@ -1,9 +1,11 @@
 import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common'
+import { InjectQueue } from '@nestjs/bullmq'
+import { Queue } from 'bullmq'
+import { Prisma, TransactionStatus } from '@prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
 import { CreateTransactionDto } from './dto/create-transaction.dto'
 import { UpdateTransactionStatusDto } from './dto/update-transaction-status.dto'
 import { QueryTransactionDto } from './dto/query-transaction.dto'
-import { TransactionStatus } from '@prisma/client'
 
 const VALID_TRANSITIONS: Record<TransactionStatus, TransactionStatus[]> = {
   pending: ['approved', 'rejected', 'failed'],
@@ -15,20 +17,15 @@ const VALID_TRANSITIONS: Record<TransactionStatus, TransactionStatus[]> = {
 
 @Injectable()
 export class TransactionsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @InjectQueue('transactions') private transactionsQueue: Queue,
+  ) {}
 
   private generateReference(): string {
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-    const random = Math.random().toString(36).toUpperCase().slice(2, 8)
+    const random = Math.random().toString(36).toUpperCase().slice(2, 8).padEnd(6, '0')
     return `TXN-${date}-${random}`
-  }
-
-  private async generateUniqueReference(): Promise<string> {
-    let reference = this.generateReference()
-    while (await this.prisma.transaction.findUnique({ where: { reference } })) {
-      reference = this.generateReference()
-    }
-    return reference
   }
 
   async create(createTransactionDto: CreateTransactionDto) {
@@ -46,32 +43,48 @@ export class TransactionsService {
       throw new NotFoundException(`Merchant con id ${merchant_id} no existe`)
     }
 
-    const reference = await this.generateUniqueReference()
+    // Reintenta si hay colisión en la referencia (muy improbable pero posible)
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await this.prisma.transaction.create({
+          data: {
+            merchantId: merchant_id,
+            amount,
+            currency,
+            type,
+            status: 'pending',
+            reference: this.generateReference(),
+            metadata: metadata ?? undefined,
+          },
+        })
+      } catch (error) {
+        const isReferenceConflict =
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002' &&
+          (error.meta?.target as string[] | undefined)?.includes('reference')
 
-    return this.prisma.transaction.create({
-      data: {
-        merchantId: merchant_id,
-        amount,
-        currency,
-        type,
-        status: 'pending',
-        reference,
-        metadata: metadata ? JSON.parse(JSON.stringify(metadata)) : undefined,
-      },
-    })
+        if (isReferenceConflict && attempt < 2) continue
+        throw error
+      }
+    }
   }
 
   async findAll(query: QueryTransactionDto) {
     const { page = 1, limit = 20, status, type, date_from, date_to } = query
 
-    const where: any = {}
+    if (date_from && date_to && new Date(date_from) > new Date(date_to)) {
+      throw new UnprocessableEntityException('date_from no puede ser mayor que date_to')
+    }
+
+    const where: Prisma.TransactionWhereInput = {}
 
     if (status) where.status = status
     if (type) where.type = type
     if (date_from || date_to) {
-      where.createdAt = {}
-      if (date_from) where.createdAt.gte = new Date(date_from)
-      if (date_to) where.createdAt.lte = new Date(date_to)
+      where.createdAt = {
+        ...(date_from && { gte: new Date(date_from) }),
+        ...(date_to && { lte: new Date(date_to) }),
+      }
     }
 
     const [data, total] = await Promise.all([
@@ -114,13 +127,28 @@ export class TransactionsService {
 
     if (!validNext.includes(newStatus)) {
       throw new UnprocessableEntityException(
-        `Transicion de estado invalida: no se puede cambiar de '${transaction.status}' a '${newStatus}'`
+        `Transicion de estado invalida: no se puede cambiar de '${transaction.status}' a '${newStatus}'`,
       )
     }
 
-    return this.prisma.transaction.update({
+    const updated = await this.prisma.transaction.update({
       where: { id },
       data: { status: newStatus },
     })
+
+    try {
+      await this.transactionsQueue.add('status-changed', {
+        transactionId: updated.id,
+        merchantId: updated.merchantId,
+        status: newStatus,
+        amount: updated.amount,
+        currency: updated.currency,
+        reference: updated.reference,
+      })
+    } catch (error) {
+      console.error(`[transactions] Error al encolar evento para tx ${updated.id}:`, error)
+    }
+
+    return updated
   }
 }

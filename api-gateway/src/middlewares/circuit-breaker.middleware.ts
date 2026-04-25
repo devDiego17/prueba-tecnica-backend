@@ -1,52 +1,75 @@
-import { Request, Response, NextFunction } from 'express'
+import { Response } from 'express'
 
 type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN'
 
-let state: CircuitState = 'CLOSED'
-let failureCount = 0
-let openedAt: number | null = null
-let halfOpenProbeInFlight = false
+interface CircuitBreaker {
+  state: CircuitState
+  failureCount: number
+  openedAt: number | null
+  halfOpenProbeInFlight: boolean
+}
 
 const FAILURE_THRESHOLD = 5
-const RESET_TIMEOUT = 30000
+const RESET_TIMEOUT = 30_000
 
-export const recordSuccess = () => {
-  failureCount = 0
-  state = 'CLOSED'
-  halfOpenProbeInFlight = false
+const breakers = new Map<string, CircuitBreaker>()
+
+function getBreaker(target: string): CircuitBreaker {
+  if (!breakers.has(target)) {
+    breakers.set(target, { state: 'CLOSED', failureCount: 0, openedAt: null, halfOpenProbeInFlight: false })
+  }
+  return breakers.get(target)!
 }
 
-export const recordFailure = () => {
-  failureCount++
-  if (state === 'HALF_OPEN') {
-    state = 'OPEN'
-    openedAt = Date.now()
-    halfOpenProbeInFlight = false
-  } else if (failureCount >= FAILURE_THRESHOLD) {
-    state = 'OPEN'
-    openedAt = Date.now()
+export function recordSuccess(target: string) {
+  const cb = getBreaker(target)
+  if (cb.state !== 'CLOSED') {
+    console.info(`[circuit-breaker] ${target} → CLOSED`)
+  }
+  cb.state = 'CLOSED'
+  cb.failureCount = 0
+  cb.halfOpenProbeInFlight = false
+}
+
+export function recordFailure(target: string) {
+  const cb = getBreaker(target)
+  cb.failureCount++
+
+  if (cb.state === 'HALF_OPEN') {
+    cb.state = 'OPEN'
+    cb.openedAt = Date.now()
+    cb.halfOpenProbeInFlight = false
+    console.warn(`[circuit-breaker] ${target} → OPEN (probe fallida)`)
+  } else if (cb.failureCount >= FAILURE_THRESHOLD) {
+    cb.state = 'OPEN'
+    cb.openedAt = Date.now()
+    console.warn(`[circuit-breaker] ${target} → OPEN (${cb.failureCount} fallos consecutivos)`)
   }
 }
 
-export const circuitBreakerMiddleware = (req: Request, res: Response, next: NextFunction) => {
-  if (state === 'CLOSED') {
-    return next()
-  }
+export function checkBreaker(target: string, res: Response): boolean {
+  const cb = getBreaker(target)
 
-  if (state === 'OPEN') {
-    const now = Date.now()
-    if (openedAt && now - openedAt >= RESET_TIMEOUT) {
-      state = 'HALF_OPEN'
+  if (cb.state === 'CLOSED') return true
+
+  if (cb.state === 'OPEN') {
+    if (cb.openedAt && Date.now() - cb.openedAt >= RESET_TIMEOUT) {
+      cb.state = 'HALF_OPEN'
+      console.info(`[circuit-breaker] ${target} → HALF_OPEN`)
     } else {
-      return res.status(503).json({ message: 'Servicio temporalmente no disponible', statusCode: 503 })
+      res.status(503).json({ message: 'Servicio temporalmente no disponible', statusCode: 503 })
+      return false
     }
   }
 
-  if (state === 'HALF_OPEN') {
-    if (halfOpenProbeInFlight) {
-      return res.status(503).json({ message: 'Servicio temporalmente no disponible', statusCode: 503 })
+  if (cb.state === 'HALF_OPEN') {
+    if (cb.halfOpenProbeInFlight) {
+      res.status(503).json({ message: 'Servicio temporalmente no disponible', statusCode: 503 })
+      return false
     }
-    halfOpenProbeInFlight = true
-    return next()
+    cb.halfOpenProbeInFlight = true
+    return true
   }
+
+  return true
 }

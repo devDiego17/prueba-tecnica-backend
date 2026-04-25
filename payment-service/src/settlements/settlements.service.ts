@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
+import { Prisma } from '@prisma/client'
 import { CreateSettlementDto } from './dto/create-settlements.dto'
 
 @Injectable()
@@ -33,7 +34,10 @@ export class SettlementsService {
       throw new NotFoundException('No hay transacciones elegibles en el periodo indicado')
     }
 
-    const totalAmount = transactions.reduce((sum, tx) => sum + Number(tx.amount), 0)
+    const totalAmount = transactions.reduce(
+      (sum, tx) => sum.add(tx.amount),
+      new Prisma.Decimal(0),
+    )
 
     return this.prisma.$transaction(async (prisma) => {
       const settlement = await prisma.settlement.create({

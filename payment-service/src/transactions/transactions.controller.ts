@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Patch, Body, Param, Query, ParseUUIDPipe, UseGuards } from '@nestjs/common'
+import { Merchant } from '@prisma/client'
 import { TransactionsService } from './transactions.service'
 import { CreateTransactionDto } from './dto/create-transaction.dto'
 import { UpdateTransactionStatusDto } from './dto/update-transaction-status.dto'
@@ -14,10 +15,9 @@ export class TransactionsController {
   @Post()
   create(
     @Body() createTransactionDto: CreateTransactionDto,
-    @CurrentMerchant() merchant: any,
+    @CurrentMerchant() merchant: Merchant,
   ) {
-    createTransactionDto.merchant_id = merchant.id
-    return this.transactionsService.create(createTransactionDto)
+    return this.transactionsService.create({ ...createTransactionDto, merchant_id: merchant.id })
   }
 
   @Get()

@@ -1,9 +1,7 @@
 import { Module } from '@nestjs/common'
 import { BullModule } from '@nestjs/bullmq'
 import { PrismaModule } from './prisma/prisma.module'
-import { MerchantsModule } from './merchants/merchants.module'
-import { TransactionsModule } from './transactions/transactions.module'
-import { SettlementsModule } from './settlements/settlements.module'
+import { NotificationsModule } from './notifications/notifications.module'
 import { HealthModule } from './health/health.module'
 
 @Module({
@@ -15,9 +13,7 @@ import { HealthModule } from './health/health.module'
       },
     }),
     PrismaModule,
-    MerchantsModule,
-    TransactionsModule,
-    SettlementsModule,
+    NotificationsModule,
     HealthModule,
   ],
 })
