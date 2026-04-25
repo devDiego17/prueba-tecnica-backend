@@ -2,7 +2,7 @@ import { IsEnum, IsNotEmpty, IsNumber, IsObject, IsOptional, IsPositive, IsUUID 
 import { Currency, TransactionType } from '@prisma/client'
 
 export class CreateTransactionDto {
-  @IsUUID()
+  @IsUUID('4')
   @IsNotEmpty()
   merchant_id: string
 
