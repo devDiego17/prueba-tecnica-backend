@@ -15,3 +15,5 @@ Bienvenido/a a la prueba tecnica para la posicion de **Backend Developer**. Esta
 **8 horas** desde el momento en que se comparte este repositorio con el candidato.
 
 Exitos.
+ 
+ modulo 1 : Modelo de base de datos y migracion con Prisma a docker  ✅

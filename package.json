@@ -1,0 +1,10 @@
+{
+  "devDependencies": {
+    "@types/uuid": "^10.0.0",
+    "prisma": "^7.8.0"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "uuid": "^14.0.0"
+  }
+}
