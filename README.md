@@ -44,3 +44,12 @@ Cualquier otra transición retorna 422 Unprocessable Entity
 
 Validaciones con class-validator en todos los endpoints
 Transformación automática de query params con class-transformer
+
+Parte 2.2 — Módulo de Liquidaciones (Settlements)
+
+Endpoint POST /settlements/generate para generar liquidaciones de un merchant en un rango de fechas
+Solo agrupa transacciones con status approved que no pertenezcan a una liquidación previa
+Calcula total_amount y transaction_count automáticamente
+Creación atómica usando transacción de base de datos (prisma.$transaction)
+Retorna 404 si no hay transacciones elegibles en el periodo
+Endpoint GET /settlements/:id que retorna el detalle de la liquidación con sus transacciones asociadas
